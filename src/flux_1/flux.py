@@ -8,13 +8,13 @@ from flux_1.config.model_config import ModelConfig
 from flux_1.config.runtime_config import RuntimeConfig
 from flux_1.models.text_encoder.clip_encoder.clip_encoder import CLIPEncoder
 from flux_1.models.text_encoder.t5_encoder.t5_encoder import T5Encoder
-from flux_1.models.transformer.transformer import Transformer
+from flux_1.models.transformer.transformer import LoraTransformer, Transformer
 from flux_1.models.vae.vae import VAE
 from flux_1.post_processing.image_util import ImageUtil
 from flux_1.tokenizer.clip_tokenizer import TokenizerCLIP
 from flux_1.tokenizer.t5_tokenizer import TokenizerT5
 from flux_1.tokenizer.tokenizer_handler import TokenizerHandler
-from flux_1.weights.weight_handler import WeightHandler
+from flux_1.weights.weight_handler import LoraWeightHandler, WeightHandler
 
 
 class Flux1:
@@ -82,9 +82,9 @@ class Flux1:
 
     @staticmethod
     def _unpack_latents(latents: mx.array, height: int, width: int) -> mx.array:
-        latents = mx.reshape(latents, (1, width // 16, height // 16, 16, 2, 2))
+        latents = mx.reshape(latents, (1, height // 16, width // 16, 16, 2, 2))
         latents = mx.transpose(latents, (0, 3, 1, 4, 2, 5))
-        latents = mx.reshape(latents, (1, 16, width // 16 * 2, height // 16 * 2))
+        latents = mx.reshape(latents, (1, 16, height // 16 * 2, width // 16 * 2))
         return latents
 
     def encode(self, path: str) -> mx.array:
@@ -94,3 +94,21 @@ class Flux1:
     def decode(self, code: mx.array) -> PIL.Image.Image:
         decoded = self.vae.decode(code)
         return ImageUtil.to_image(decoded)
+    
+
+class Flux1Lora(Flux1):
+
+    def __init__(self, repo_id: str, lora_id: str):
+        self.model_config = ModelConfig.from_repo(repo_id)
+
+        # Initialize the tokenizers
+        tokenizers = TokenizerHandler.load_from_disk_or_huggingface(repo_id, self.model_config.max_sequence_length)
+        self.t5_tokenizer = TokenizerT5(tokenizers.t5, max_length=self.model_config.max_sequence_length)
+        self.clip_tokenizer = TokenizerCLIP(tokenizers.clip)
+
+        # Initialize the models. Same as Flux1, but with LoraTransformer
+        weights = LoraWeightHandler.load_from_disk_or_huggingface(repo_id, lora_id)
+        self.vae = VAE(weights.vae)
+        self.transformer = LoraTransformer(weights.transformer)
+        self.t5_text_encoder = T5Encoder(weights.t5_encoder)
+        self.clip_text_encoder = CLIPEncoder(weights.clip_encoder)

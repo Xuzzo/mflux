@@ -127,3 +127,9 @@ class WeightHandler:
                 ]
             )
         )
+
+
+class LoraWeightHandler:
+
+    def __init__(self, repo_id: str):
+        pass

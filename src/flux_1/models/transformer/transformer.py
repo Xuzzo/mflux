@@ -1,11 +1,10 @@
 import mlx.core as mx
 from mlx import nn
 
-from flux_1.config.config import Config
 from flux_1.config.runtime_config import RuntimeConfig
 from flux_1.models.transformer.ada_layer_norm_continous import AdaLayerNormContinuous
 from flux_1.models.transformer.embed_nd import EmbedND
-from flux_1.models.transformer.joint_transformer_block import JointTransformerBlock
+from flux_1.models.transformer.joint_transformer_block import JointLoraTransformerBlock, JointTransformerBlock
 from flux_1.models.transformer.single_transformer_block import SingleTransformerBlock
 from flux_1.models.transformer.time_text_embed import TimeTextEmbed
 
@@ -71,15 +70,32 @@ class Transformer(nn.Module):
 
     @staticmethod
     def _prepare_latent_image_ids(height: int, width: int) -> mx.array:
-        latent_width = width // 16
         latent_height = height // 16
-        latent_image_ids = mx.zeros((latent_width, latent_height, 3))
-        latent_image_ids = latent_image_ids.at[:, :, 1].add(mx.arange(0, latent_width)[:, None])
-        latent_image_ids = latent_image_ids.at[:, :, 2].add(mx.arange(0, latent_height)[None, :])
+        latent_width = width // 16
+        latent_image_ids = mx.zeros((latent_height, latent_width, 3))
+        latent_image_ids = latent_image_ids.at[:, :, 1].add(mx.arange(0, latent_height)[:, None])
+        latent_image_ids = latent_image_ids.at[:, :, 2].add(mx.arange(0, latent_width)[None, :])
         latent_image_ids = mx.repeat(latent_image_ids[None, :], 1, axis=0)
-        latent_image_ids = mx.reshape(latent_image_ids, (1, latent_width * latent_height, 3))
+        latent_image_ids = mx.reshape(latent_image_ids, (1, latent_height * latent_width, 3))
         return latent_image_ids
 
     @staticmethod
     def _prepare_text_ids(seq_len: mx.array) -> mx.array:
         return mx.zeros((1, seq_len, 3))
+    
+
+class LoraTransformer(Transformer):
+
+    def __init__(self, weights: dict, dim: int, rank=4, network_alpha=None, lora_stregth=1):
+        self.pos_embed = EmbedND()
+        self.x_embedder = nn.Linear(64, 3072)
+        with_guidance_embed = "guidance_embedder" in weights["time_text_embed"].keys()
+        self.time_text_embed = TimeTextEmbed(with_guidance_embed=with_guidance_embed)
+        self.context_embedder = nn.Linear(4096, 3072)
+        self.transformer_blocks = [JointLoraTransformerBlock(i, dim, rank, network_alpha, lora_stregth) for i in range(19)]
+        self.single_transformer_blocks = [SingleTransformerBlock(i) for i in range(38)]
+        self.norm_out = AdaLayerNormContinuous(3072, 3072)
+        self.proj_out = nn.Linear(3072, 64)
+
+        # Load the weights after all components are initialized
+        self.update(weights)

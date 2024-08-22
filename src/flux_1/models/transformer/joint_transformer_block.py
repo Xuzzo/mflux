@@ -1,9 +1,10 @@
+from re import L
 import mlx.core as mx
 from mlx import nn
 
 from flux_1.models.transformer.ada_layer_norm_zero import AdaLayerNormZero
 from flux_1.models.transformer.feed_forward import FeedForward
-from flux_1.models.transformer.joint_attention import JointAttention
+from flux_1.models.transformer.joint_attention import JointAttention, JointLoraAttention
 
 
 class JointTransformerBlock(nn.Module):
@@ -54,3 +55,11 @@ class JointTransformerBlock(nn.Module):
         context_ff_output = self.ff_context.forward(norm_encoder_hidden_states)
         encoder_hidden_states = encoder_hidden_states + mx.expand_dims(c_gate_mlp, axis=1) * context_ff_output
         return encoder_hidden_states, hidden_states
+    
+
+class JointLoraTransformerBlock(JointTransformerBlock):
+
+    def __init__(self, layer, dim: int, rank=4, network_alpha=None, lora_strength=0.0):
+        super().__init__(layer)
+        self.attn = JointLoraAttention(dim, rank=4, network_alpha=network_alpha, lora_strength=lora_strength)
+    
