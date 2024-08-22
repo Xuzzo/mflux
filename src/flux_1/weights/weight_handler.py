@@ -131,5 +131,25 @@ class WeightHandler:
 
 class LoraWeightHandler:
 
-    def __init__(self, repo_id: str):
-        pass
+    def __init__(self, lora_repo_id: str, lora_name: str):
+        root_path = LoraWeightHandler._download_or_get_cached_weights(lora_repo_id)
+        weights = WeightHandler._load(root_path / f"{lora_name}.safetensors")
+        self.lora = LoraWeightHandler._lora(
+            weights= weights
+        )
+
+    def _lora(weights: list[dict]) -> dict:
+        weights = WeightHandler._flatten([WeightHandler._reshape_weights(k, v) for k, v in weights])
+        unflatten = tree_unflatten(weights)
+        return unflatten
+    
+    @staticmethod
+    def _download_or_get_cached_weights(repo_id: str) -> Path:
+        return Path(
+            snapshot_download(
+                repo_id=repo_id,
+                allow_patterns=[
+                    "*.safetensors",
+                ]
+            )
+        )
