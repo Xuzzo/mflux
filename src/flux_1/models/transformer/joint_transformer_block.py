@@ -59,7 +59,7 @@ class JointTransformerBlock(nn.Module):
 
 class JointLoraTransformerBlock(JointTransformerBlock):
 
-    def __init__(self, layer, dim: int, rank=4, network_alpha=None, lora_strength=0.0):
+    def __init__(self, layer, lora_strength=0.0):
         super().__init__(layer)
-        self.attn = JointLoraAttention(dim, rank=4, network_alpha=network_alpha, lora_strength=lora_strength)
+        self.attn = JointLoraAttention(lora_strength=lora_strength)
     

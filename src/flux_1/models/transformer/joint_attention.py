@@ -95,7 +95,7 @@ class JointLoraAttention(JointAttention):
     batch_size = 1
     num_heads = 24
 
-    def __init__(self, rank=4, network_alpha=None, lora_strength=0.0):
+    def __init__(self, lora_strength=0.0):
         super().__init__()
         self.to_q = nn.Linear(3072, 3072)
         self.to_k = nn.Linear(3072, 3072)
@@ -109,10 +109,10 @@ class JointLoraAttention(JointAttention):
         self.norm_k = nn.RMSNorm(128)
         self.norm_added_q = nn.RMSNorm(128)
         self.norm_added_k = nn.RMSNorm(128)
-        self.qkv_lora1 = LoRALinearLayer(3072, 3072 * 3, rank, network_alpha)
-        self.proj_lora1 = LoRALinearLayer(3072, 3072, rank, network_alpha)
-        self.qkv_lora2 = LoRALinearLayer(3072, 3072 * 3, rank, network_alpha)
-        self.proj_lora2 = LoRALinearLayer(3072, 3072, rank, network_alpha)
+        self.qkv_lora1 = LoRALinearLayer(3072, 3072 * 3)
+        self.proj_lora1 = LoRALinearLayer(3072, 3072)
+        self.qkv_lora2 = LoRALinearLayer(3072, 3072 * 3)
+        self.proj_lora2 = LoRALinearLayer(3072, 3072)
         self.lora_strength = lora_strength
     
     def forward(
@@ -122,7 +122,7 @@ class JointLoraAttention(JointAttention):
             image_rotary_emb: mx.array
     ) -> (mx.array, mx.array):
 
-        qkv_lora1 = self.qkv_lora1(hidden_states)
+        qkv_lora1 = self.qkv_lora1.forward(hidden_states)
         query = self.to_q(hidden_states) + qkv_lora1[:, :, :3072] * self.lora_strength
         key = self.to_k(hidden_states) + qkv_lora1[:, :, 3072: 3072 * 2] * self.lora_strength
         value = self.to_v(hidden_states) + qkv_lora1[:, :, 3072 * 2:] * self.lora_strength
@@ -134,7 +134,7 @@ class JointLoraAttention(JointAttention):
         query = self.norm_q(query)
         key = self.norm_k(key)
 
-        qkv_lora2 = self.qkv_lora2(encoder_hidden_states)
+        qkv_lora2 = self.qkv_lora2.forward(encoder_hidden_states)
         encoder_hidden_states_query_proj = self.add_q_proj(encoder_hidden_states) + qkv_lora2[:, :, :3072] * self.lora_strength
         encoder_hidden_states_key_proj = self.add_k_proj(encoder_hidden_states) + qkv_lora2[:, :, 3072: 3072 * 2] * self.lora_strength
         encoder_hidden_states_value_proj = self.add_v_proj(encoder_hidden_states) + qkv_lora2[:, :, 3072 * 2:] * self.lora_strength
@@ -160,7 +160,7 @@ class JointLoraAttention(JointAttention):
             hidden_states[:, encoder_hidden_states.shape[1]:],
         )
 
-        hidden_states = self.to_out[0](hidden_states) + self.proj_lora1(hidden_states) * self.lora_strength
-        encoder_hidden_states = self.to_add_out(encoder_hidden_states) + self.proj_lora2(encoder_hidden_states) * self.lora_strength
+        hidden_states = self.to_out[0](hidden_states) + self.proj_lora1.forward(hidden_states) * self.lora_strength
+        encoder_hidden_states = self.to_add_out(encoder_hidden_states) + self.proj_lora2.forward(encoder_hidden_states) * self.lora_strength
 
         return hidden_states, encoder_hidden_states

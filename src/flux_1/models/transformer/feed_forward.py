@@ -18,24 +18,12 @@ class FeedForward(nn.Module):
 
 
 class LoRALinearLayer(nn.Module):
-    def __init__(self, in_features, out_features, rank=4, network_alpha=None):
+    def __init__(self, in_features, out_features):
         super().__init__()
-
-        self.down = nn.Linear(in_features, rank)
-        self.up = nn.Linear(rank, out_features)
-        # This value has the same meaning as the `--network_alpha` option in the kohya-ss trainer script.
-        # See https://github.com/darkstorm2150/sd-scripts/blob/main/docs/train_network_README-en.md#execute-learning
-        self.network_alpha = network_alpha
-        self.rank = rank
+        self.down = nn.Linear(in_features, 32, bias=False)
+        self.up = nn.Linear(32, out_features, bias=False)
 
     def forward(self, hidden_states):
-        orig_dtype = hidden_states.dtype
-        dtype = self.down.weight.dtype
-
-        down_hidden_states = self.down(hidden_states.to(dtype))
+        down_hidden_states = self.down(hidden_states)
         up_hidden_states = self.up(down_hidden_states)
-
-        if self.network_alpha is not None:
-            up_hidden_states *= self.network_alpha / self.rank
-
-        return up_hidden_states.to(orig_dtype)
+        return up_hidden_states

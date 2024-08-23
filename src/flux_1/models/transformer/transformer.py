@@ -86,13 +86,13 @@ class Transformer(nn.Module):
 
 class LoraTransformer(Transformer):
 
-    def __init__(self, weights: dict, dim: int, rank=4, network_alpha=None, lora_stregth=1):
+    def __init__(self, weights: dict, dim: int = 3072, rank=32, network_alpha=None, lora_stregth=1):
         self.pos_embed = EmbedND()
         self.x_embedder = nn.Linear(64, 3072)
         with_guidance_embed = "guidance_embedder" in weights["time_text_embed"].keys()
         self.time_text_embed = TimeTextEmbed(with_guidance_embed=with_guidance_embed)
         self.context_embedder = nn.Linear(4096, 3072)
-        self.transformer_blocks = [JointLoraTransformerBlock(i, dim, rank, network_alpha, lora_stregth) for i in range(19)]
+        self.transformer_blocks = [JointLoraTransformerBlock(i, lora_stregth) for i in range(19)]
         self.single_transformer_blocks = [SingleTransformerBlock(i) for i in range(38)]
         self.norm_out = AdaLayerNormContinuous(3072, 3072)
         self.proj_out = nn.Linear(3072, 64)

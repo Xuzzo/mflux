@@ -29,10 +29,6 @@ class WeightHandler:
         )
 
     @staticmethod
-    def load_from_disk_or_huggingface(repo_id: str) -> "WeightHandler":
-        return WeightHandler(repo_id)
-
-    @staticmethod
     def _load(path: Path) -> list[dict]:
         return list(mx.load(str(path)).items())
 
@@ -129,19 +125,27 @@ class WeightHandler:
         )
 
 
-class LoraWeightHandler:
+class LoraWeightHandler(WeightHandler):
 
-    def __init__(self, lora_repo_id: str, lora_name: str):
-        root_path = LoraWeightHandler._download_or_get_cached_weights(lora_repo_id)
-        weights = WeightHandler._load(root_path / f"{lora_name}.safetensors")
+    def __init__(self, repo_id: str, lora_repo_id: str, lora_name: str):
+        super().__init__(repo_id)
+        lora_root_path = LoraWeightHandler._download_or_get_cached_weights(lora_repo_id)
+        lora_weights = WeightHandler._load(lora_root_path / f"{lora_name}.safetensors")
         self.lora = LoraWeightHandler._lora(
-            weights= weights
+            weights= lora_weights
         )
+        self.transformer = self.add_lora_to_transformer(self.transformer, self.lora)
 
     def _lora(weights: list[dict]) -> dict:
         weights = WeightHandler._flatten([WeightHandler._reshape_weights(k, v) for k, v in weights])
         unflatten = tree_unflatten(weights)
         return unflatten
+    
+    @staticmethod
+    def add_lora_to_transformer(transformer: dict, lora: dict) -> dict:
+        for i, block in enumerate(transformer["transformer_blocks"]):
+            block["attn"].update(lora["double_blocks"][i]["processor"])
+        return transformer
     
     @staticmethod
     def _download_or_get_cached_weights(repo_id: str) -> Path:

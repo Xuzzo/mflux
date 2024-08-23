@@ -28,7 +28,7 @@ class Flux1:
         self.clip_tokenizer = TokenizerCLIP(tokenizers.clip)
 
         # Initialize the models
-        weights = WeightHandler.load_from_disk_or_huggingface(repo_id)
+        weights = WeightHandler(repo_id)
         self.vae = VAE(weights.vae)
         self.transformer = Transformer(weights.transformer)
         self.t5_text_encoder = T5Encoder(weights.t5_encoder)
@@ -98,7 +98,7 @@ class Flux1:
 
 class Flux1Lora(Flux1):
 
-    def __init__(self, repo_id: str, lora_id: str):
+    def __init__(self, repo_id: str, lora_repo_id: str, lora_id: str):
         self.model_config = ModelConfig.from_repo(repo_id)
 
         # Initialize the tokenizers
@@ -107,7 +107,7 @@ class Flux1Lora(Flux1):
         self.clip_tokenizer = TokenizerCLIP(tokenizers.clip)
 
         # Initialize the models. Same as Flux1, but with LoraTransformer
-        weights = LoraWeightHandler.load_from_disk_or_huggingface(repo_id, lora_id)
+        weights = LoraWeightHandler(repo_id, lora_repo_id, lora_id)
         self.vae = VAE(weights.vae)
         self.transformer = LoraTransformer(weights.transformer)
         self.t5_text_encoder = T5Encoder(weights.t5_encoder)
