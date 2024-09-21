@@ -15,7 +15,7 @@ prompt = "A picture of a beautiful woman in ancient rome"
 flux = Flux1Controlnet(
     model_config=ModelConfig.from_alias("dev"),
     quantize=8,
-    lora_paths=["Flux_1_Dev_LoRA_Paper-Cutout-Style.safetensors"]
+    # lora_paths=["Flux_1_Dev_LoRA_Paper-Cutout-Style.safetensors"]
 )
 
 control_image = ImageUtil.load_image("image_51.png")
@@ -32,6 +32,7 @@ image = flux.generate_image(
         guidance=3.5,
         controlnet_strength=0.7,
         img2img_strength=0.2,
+        control_mode=0,
     )
 )
 

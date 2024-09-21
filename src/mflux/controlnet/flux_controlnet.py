@@ -115,11 +115,13 @@ class Flux1Controlnet:
 
         if config.config.control_mode == 0:
             control_image = ControlnetUtil.preprocess_canny(control_image)
+        else:
+            control_image = PIL.Image.fromarray(control_image)
         controlnet_cond = ImageUtil.to_array(control_image)
         controlnet_cond = self.vae.encode(controlnet_cond)
         # the rescaling in the next line is not in the huggingface code, but without it the images from 
         # the chosen controlnet model are very bad
-        controlnet_cond = (controlnet_cond / self.vae.scaling_factor) + self.vae.shift_factor
+        # controlnet_cond = (controlnet_cond / self.vae.scaling_factor) + self.vae.shift_factor
         controlnet_cond = Flux1Controlnet._pack_latents(controlnet_cond, config.height, config.width)
 
         # 2. Embedd the prompt
