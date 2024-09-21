@@ -25,6 +25,7 @@ class TransformerControlnet(nn.Module):
         self.x_embedder = nn.Linear(64, 3072)
         self.time_text_embed = TimeTextEmbed(model_config=model_config)
         self.context_embedder = nn.Linear(4096, 3072)
+        self.controlnet_mode_embedder = nn.Linear(3072, 10)
         self.transformer_blocks = [JointTransformerBlock(i) for i in range(num_blocks)]
         self.single_transformer_blocks = [SingleTransformerBlock(i) for i in range(num_single_blocks)]
 
@@ -48,11 +49,16 @@ class TransformerControlnet(nn.Module):
         hidden_states = self.x_embedder(hidden_states)
         hidden_states = hidden_states + self.controlnet_x_embedder(controlnet_cond)
         conditioning_scale = config.config.controlnet_strength
+        controlnet_mode = mx.array([config.config.control_mode])
+        
 
         guidance = mx.broadcast_to(config.guidance * config.num_train_steps, (1,)).astype(config.precision)
         text_embeddings = self.time_text_embed.forward(time_step, pooled_prompt_embeds, guidance)
         encoder_hidden_states = self.context_embedder(prompt_embeds)
         txt_ids = Transformer.prepare_text_ids(seq_len=prompt_embeds.shape[1])
+        controlnet_mode_emb = self.controlnet_mode_embedder(controlnet_mode)
+        encoder_hidden_states = mx.concatenate([controlnet_mode_emb, encoder_hidden_states], dim=1)
+        txt_ids = mx.concatenate([txt_ids[:, :1], txt_ids], dim=1)
         img_ids = Transformer.prepare_latent_image_ids(config.height, config.width)
         ids = mx.concatenate((txt_ids, img_ids), axis=1)
         image_rotary_emb = self.pos_embed.forward(ids)

@@ -24,7 +24,7 @@ from mflux.weights.weight_handler import WeightHandler
 
 log = logging.getLogger(__name__)
 
-CONTROLNET_ID = "InstantX/FLUX.1-dev-Controlnet-Canny"
+CONTROLNET_ID = "InstantX/FLUX.1-dev-Controlnet-Union"
 
 
 class Flux1Controlnet:
@@ -113,7 +113,8 @@ class Flux1Controlnet:
         image_latents = self._pack_latents(image_latents, config.height, config.width)
         latents = config.sigmas[config.init_timestep] * latents + (1.0 - config.sigmas[config.init_timestep]) * image_latents
 
-        control_image = ControlnetUtil.preprocess_canny(control_image)
+        if config.config.control_mode == 0:
+            control_image = ControlnetUtil.preprocess_canny(control_image)
         controlnet_cond = ImageUtil.to_array(control_image)
         controlnet_cond = self.vae.encode(controlnet_cond)
         # the rescaling in the next line is not in the huggingface code, but without it the images from 

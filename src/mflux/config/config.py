@@ -33,10 +33,12 @@ class ConfigImg2Img(Config):
             height: int = 1024,
             guidance: float = 4.0,
             controlnet_strength: float = 1.0,
+            control_mode: int = 0,
             img2img_strength: float = 0.7,
     ):
         super().__init__(num_inference_steps, width, height, guidance)
         self.controlnet_strength = controlnet_strength
+        self.control_mode = control_mode
 
         self.img2img_strength = img2img_strength
         if img2img_strength <= 0.0 or img2img_strength >= 1.0:
