@@ -3,7 +3,7 @@ from PIL import Image
 import mlx.core as mx
 import numpy as np
 
-from mflux.config.config import ConfigControlnet
+from mflux.config.config import ConfigImg2Img
 from mflux.config.runtime_config import RuntimeConfig
 from mflux.post_processing.generated_image import GeneratedImage
 
@@ -36,7 +36,7 @@ class ImageUtil:
             generation_time=generation_time,
             lora_paths=lora_paths,
             lora_scales=lora_scales,
-            controlnet_strength=config.controlnet_strength if isinstance(config.config, ConfigControlnet) else None,
+            controlnet_strength=config.controlnet_strength if isinstance(config.config, ConfigImg2Img) else None,
         )
 
     @staticmethod

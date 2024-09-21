@@ -5,7 +5,7 @@ import mlx.core as mx
 from mlx import nn
 from tqdm import tqdm
 
-from mflux.config.config import ConfigControlnet
+from mflux.config.config import ConfigImg2Img
 from mflux.config.model_config import ModelConfig
 from mflux.config.runtime_config import RuntimeConfig
 from mflux.controlnet.controlnet_util import ControlnetUtil
@@ -35,7 +35,6 @@ class Flux1Controlnet:
             local_path: str | None = None,
             lora_paths: list[str] | None = None,
             lora_scales: list[float] | None = None,
-            controlnet_path: str | None = None,
     ):
         self.lora_paths = lora_paths
         self.lora_scales = lora_scales
@@ -95,10 +94,9 @@ class Flux1Controlnet:
         if ctrlnet_quantization_level is not None:
             self.transformer_controlnet.update(weights_controlnet)
 
-    def generate_image(self, seed: int, prompt: str, control_image: PIL.Image.Image, config: ConfigControlnet = ConfigControlnet()) -> GeneratedImage:
+    def generate_image(self, seed: int, prompt: str, control_image: PIL.Image.Image, config: ConfigImg2Img = ConfigImg2Img()) -> GeneratedImage:
         # Create a new runtime config based on the model type and input parameters
         config = RuntimeConfig(config, self.model_config)
-        time_steps = tqdm(range(config.num_inference_steps))
 
         if config.height != control_image.height or config.width != control_image.width:
             log.warning(f"Control image has different dimensions than the model. Resizing to {config.width}x{config.height}")
@@ -109,12 +107,18 @@ class Flux1Controlnet:
             shape=[1, (config.height // 16) * (config.width // 16), 64],
             key=mx.random.key(seed)
         )
+
+        base_image = ImageUtil.to_array(control_image)
+        image_latents = self.vae.encode(base_image)
+        image_latents = self._pack_latents(image_latents, config.height, config.width)
+        latents = config.sigmas[config.init_timestep] * latents + (1.0 - config.sigmas[config.init_timestep]) * image_latents
+
         control_image = ControlnetUtil.preprocess_canny(control_image)
         controlnet_cond = ImageUtil.to_array(control_image)
-        controlnet_cong = self.vae.encode(controlnet_cond)
+        controlnet_cond = self.vae.encode(controlnet_cond)
         # the rescaling in the next line is not in the huggingface code, but without it the images from 
         # the chosen controlnet model are very bad
-        controlnet_cond = (controlnet_cong / self.vae.scaling_factor) + self.vae.shift_factor
+        controlnet_cond = (controlnet_cond / self.vae.scaling_factor) + self.vae.shift_factor
         controlnet_cond = Flux1Controlnet._pack_latents(controlnet_cond, config.height, config.width)
 
         # 2. Embedd the prompt
@@ -123,6 +127,7 @@ class Flux1Controlnet:
         prompt_embeds = self.t5_text_encoder.forward(t5_tokens)
         pooled_prompt_embeds = self.clip_text_encoder.forward(clip_tokens)
 
+        time_steps = tqdm(config.inference_steps)
         for t in time_steps:
             ctrlnet_block_samples, ctrlnet_single_block_samples = self.transformer_controlnet.forward(
                 t=t,

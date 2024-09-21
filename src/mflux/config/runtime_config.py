@@ -1,13 +1,13 @@
 import mlx.core as mx
 import numpy as np
 
-from mflux.config.config import Config, ConfigControlnet
+from mflux.config.config import Config, ConfigImg2Img
 from mflux.config.model_config import ModelConfig
 
 
 class RuntimeConfig:
 
-    def __init__(self, config: Config | ConfigControlnet, model_config: ModelConfig):
+    def __init__(self, config: Config | ConfigImg2Img, model_config: ModelConfig):
         self.config = config
         self.model_config = model_config
         self.sigmas = self._create_sigmas(config, model_config)
@@ -27,6 +27,17 @@ class RuntimeConfig:
     @property
     def num_inference_steps(self) -> int:
         return self.config.num_inference_steps
+    
+    @property
+    def init_timestep(self) -> int:
+        if isinstance(self.config, ConfigImg2Img):
+            return self.config.init_timestep
+        else:
+            raise NotImplementedError("Init timestep is only available for ConfigImg2Img")
+        
+    @property
+    def inference_steps(self):
+        return self.config.inference_steps
 
     @property
     def precision(self) -> mx.Dtype:
@@ -38,7 +49,7 @@ class RuntimeConfig:
     
     @property
     def controlnet_strength(self) -> float:
-        if isinstance(self.config, ConfigControlnet):
+        if isinstance(self.config, ConfigImg2Img):
             return self.config.controlnet_strength
         else:
             raise NotImplementedError("Controlnet conditioning scale is only available for ConfigControlnet")
